@@ -1,0 +1,71 @@
+version: 2.1
+orbs:
+  # coveralls: coveralls/coveralls@1.0.4 # coveralls setup
+  codecov: codecov/codecov@1.2.5
+jobs:
+  node-v10:
+    docker:
+      - image: circleci/node:10
+    steps:
+      - test
+  node-v12:
+    docker:
+      - image: circleci/node:12
+    steps:
+      - test
+      - store-coverage-data
+      - upload-coverage
+  node-v13:
+    docker:
+      - image: circleci/node:14
+    steps:
+      - test
+commands:
+  store-coverage-data:
+    steps:
+      - store_artifacts:
+          path: coverage
+  test:
+    steps:
+      - checkout
+      - restore_cache:
+          key: dependency-cache-{{ checksum "yarn.lock" }}
+      - run:
+          name: install-dependancies
+          command: yarn install
+      - save_cache:
+          key: dependency-cache-{{ checksum "yarn.lock" }}
+          paths:
+            - $HOME/.yarn
+      - run:
+          name: Lint source
+          command: |
+            yarn lint:ci
+      - run:
+          name: Check types
+          command: |
+            yarn lint:ci
+      - run:
+          name: Run tests
+          command: |
+            mkdir -p ./reports/junit
+            yarn test:ci
+      - run:
+          name: Build API docs
+          command: |
+            yarn docs
+
+      - store_test_results:
+          path: reports/junit/
+  upload-coverage:
+    steps:
+      # - coveralls/upload # coveralls setup
+      - codecov/upload:
+          file: coverage/coverage-final.json
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - node-v10
+      - node-v12
+      - node-v14
